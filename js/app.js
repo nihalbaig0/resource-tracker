@@ -1,6 +1,6 @@
 const MANIFEST_PATH = 'resources/manifest.json';
 const CATEGORIES_DIR = 'resources/categories/';
-const PREVIEW_CACHE_KEY = 'resource-tracker-previews-v2';
+const PREVIEW_CACHE_KEY = 'resource-tracker-previews-v3';
 
 const CATEGORY_ICONS = {
   'ai-agents': '🤖',
@@ -141,6 +141,73 @@ function getDomain(url) {
   }
 }
 
+const GENERIC_TITLE_RE =
+  /^(medium|linkedin|github|home|blog|article|untitled|just a moment)$/i;
+
+/** Turn URL path slugs into readable titles (Medium, Hashnode, Substack, etc.) */
+function getTitleFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    const parts = u.pathname.split('/').filter(Boolean);
+
+    // medium.com/@user/post-slug or user.medium.com/post-slug
+    if (host === 'medium.com' || host.endsWith('.medium.com')) {
+      const slug = parts.find((p) => !p.startsWith('@') && p.includes('-')) || parts.at(-1);
+      if (slug) return humanizeSlug(slug);
+    }
+
+    // towardsai, gopubby, hashnode, bearblog, substack paths
+    const slugHosts =
+      /medium\.com|towardsai\.|gopubby\.|hashnode\.|bearblog\.|substack\.com|lowlevelml\.com|oxotall\.medium/;
+    if (slugHosts.test(host) || parts.length > 0) {
+      const skip = new Set(['p', 'posts', 'blog', 'pulse', 'archive', 's', 'u']);
+      const candidates = parts.filter((p) => !skip.has(p) && !p.startsWith('@') && p.length > 8);
+      const slug = candidates.find((p) => p.includes('-')) || candidates.at(-1);
+      if (slug && slug.length > 12) return humanizeSlug(slug);
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function humanizeSlug(slug) {
+  let s = slug
+    .replace(/\.(html?|md)$/i, '')
+    .replace(/-[a-f0-9]{8,}$/i, '') // Medium / platform post ids
+    .replace(/-[0-9]{6,}$/, '');
+  return s
+    .split('-')
+    .filter(Boolean)
+    .map((word) => {
+      if (word.length <= 3 && /^[a-z]+$/.test(word)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
+function resolveTitle(url, fetchedTitle) {
+  const fromUrl = getTitleFromUrl(url);
+  const domain = getDomain(url);
+
+  if (fetchedTitle && !isGenericTitle(fetchedTitle, domain)) {
+    return fetchedTitle;
+  }
+  if (fromUrl) return fromUrl;
+  if (fetchedTitle) return fetchedTitle;
+  return domain;
+}
+
+function isGenericTitle(title, domain) {
+  if (!title || title.trim().length < 4) return true;
+  const t = title.trim();
+  if (GENERIC_TITLE_RE.test(t)) return true;
+  if (t.toLowerCase() === domain.toLowerCase()) return true;
+  if (t.toLowerCase().includes('medium') && t.length < 20) return true;
+  return false;
+}
+
 function getYouTubeId(url) {
   try {
     const u = new URL(url);
@@ -180,7 +247,16 @@ function savePreviewCache(cache) {
 }
 
 async function fetchPreview(url, cache) {
-  if (cache[url]) return cache[url];
+  if (cache[url]) {
+    const cached = cache[url];
+    const domain = getDomain(url);
+    if (!cached.title || isGenericTitle(cached.title, domain)) {
+      const fixed = { ...cached, title: resolveTitle(url, cached.title) };
+      cache[url] = fixed;
+      return fixed;
+    }
+    return cached;
+  }
 
   const ytId = getYouTubeId(url);
   if (ytId) {
@@ -214,30 +290,36 @@ async function fetchPreview(url, cache) {
     }
   }
 
+  const domain = getDomain(url);
+  const urlTitle = getTitleFromUrl(url);
+
   try {
     const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(url)}`;
     const res = await fetch(apiUrl);
-    if (res.ok) {
-      const { data } = await res.json();
+    const json = await res.json();
+    if (res.ok && json.data) {
+      const { data } = json;
       const preview = {
-        title: data.title || null,
+        title: resolveTitle(url, data.title),
         description: data.description || null,
         image: data.image?.url || data.logo?.url || null,
-        domain: data.publisher || getDomain(url),
+        domain: data.publisher || domain,
       };
       cache[url] = preview;
       return preview;
     }
   } catch {
-    /* network */
+    /* network or rate limit */
   }
 
-  return {
-    title: null,
+  const preview = {
+    title: urlTitle || domain,
     description: null,
-    image: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(getDomain(url))}&sz=128`,
-    domain: getDomain(url),
+    image: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`,
+    domain,
   };
+  cache[url] = preview;
+  return preview;
 }
 
 function iconForCategory(slug) {
@@ -249,7 +331,11 @@ function iconForCategory(slug) {
 }
 
 function createCard(resource, preview) {
-  const title = resource.title || preview?.title || getDomain(resource.url);
+  const title =
+    resource.title ||
+    preview?.title ||
+    getTitleFromUrl(resource.url) ||
+    getDomain(resource.url);
   const desc = resource.description || preview?.description || '';
   const domain = preview?.domain || getDomain(resource.url);
   const image = preview?.image;
