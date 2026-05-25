@@ -1,0 +1,84 @@
+{
+  "categories": [
+    {
+      "name": "AI Agents",
+      "file": "ai-agents.md",
+      "count": 5
+    },
+    {
+      "name": "Scrape Crawl",
+      "file": "scrape-crawl.md",
+      "count": 1
+    },
+    {
+      "name": "LLM",
+      "file": "llm.md",
+      "count": 9
+    },
+    {
+      "name": "Deep Learning",
+      "file": "deep-learning.md",
+      "count": 1
+    },
+    {
+      "name": "RAG",
+      "file": "rag.md",
+      "count": 3
+    },
+    {
+      "name": "Claude code",
+      "file": "claude-code.md",
+      "count": 1
+    },
+    {
+      "name": "LLM Inference",
+      "file": "llm-inference.md",
+      "count": 12
+    },
+    {
+      "name": "Pytorch",
+      "file": "pytorch.md",
+      "count": 1
+    },
+    {
+      "name": "Geo ML",
+      "file": "geo-ml.md",
+      "count": 1
+    },
+    {
+      "name": "Computer Vision",
+      "file": "computer-vision.md",
+      "count": 2
+    },
+    {
+      "name": "Cuda",
+      "file": "cuda.md",
+      "count": 19
+    },
+    {
+      "name": "GraphRAG",
+      "file": "graphrag.md",
+      "count": 2
+    },
+    {
+      "name": "System Design",
+      "file": "system-design.md",
+      "count": 1
+    },
+    {
+      "name": "Distributed System",
+      "file": "distributed-system.md",
+      "count": 1
+    },
+    {
+      "name": "DLLM",
+      "file": "dllm.md",
+      "count": 1
+    },
+    {
+      "name": "Kubernetes",
+      "file": "kubernetes.md",
+      "count": 1
+    }
+  ]
+}
