@@ -13,7 +13,17 @@ Imported from `resource.md` into `resources/categories/`:
 | LLM Inference | `llm-inference.md` |
 | RAG, GraphRAG, CUDA, … | see `resources/manifest.json` |
 
-## Add links to an existing category
+## Add links from the website
+
+Click **Add link** in the header:
+
+1. Paste the URL (title optional — auto-detected for Medium, GitHub, etc.)
+2. Pick **Category** and **Subcategory** (Blogs, Projects, …)
+3. Check **Create new subcategory** to add a new `##` section
+4. Click **Connect** once with a [GitHub Personal Access Token](https://github.com/settings/tokens/new?scopes=repo&description=Resource%20Tracker) (`repo` scope)
+5. **Add link** — saves directly to your repo and redeploys via GitHub Actions
+
+## Add links to an existing category (manual)
 
 Open the matching file, e.g. `resources/categories/llm.md`:
 

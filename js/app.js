@@ -1,4 +1,7 @@
+import { initAddResource } from './add-resource.js';
+
 const MANIFEST_PATH = 'resources/manifest.json';
+const CONFIG_PATH = 'config.json';
 const CATEGORIES_DIR = 'resources/categories/';
 const PREVIEW_CACHE_KEY = 'resource-tracker-previews-v3';
 
@@ -524,8 +527,9 @@ async function hydratePreviews(categories) {
   }
 }
 
-async function loadAllCategories() {
-  const manifestRes = await fetch(MANIFEST_PATH);
+async function loadAllCategories(cacheBust = false) {
+  const bust = cacheBust ? `?t=${Date.now()}` : '';
+  const manifestRes = await fetch(`${MANIFEST_PATH}${bust}`);
   if (!manifestRes.ok) {
     throw new Error(`Could not load ${MANIFEST_PATH} (${manifestRes.status})`);
   }
@@ -533,18 +537,35 @@ async function loadAllCategories() {
 
   const loaded = await Promise.all(
     manifest.map(async (entry) => {
-      const res = await fetch(`${CATEGORIES_DIR}${entry.file}`);
+      const res = await fetch(`${CATEGORIES_DIR}${entry.file}${bust}`);
       if (!res.ok) throw new Error(`Could not load ${entry.file} (${res.status})`);
       const text = await res.text();
-      return parseCategoryMarkdown(text);
+      const cat = parseCategoryMarkdown(text);
+      cat.file = entry.file;
+      return cat;
     })
   );
 
-  return loaded.filter((c) => c.resources.length > 0);
+  return { categories: loaded.filter((c) => c.resources.length > 0), manifest };
 }
 
 let categoriesData = [];
+let manifestData = [];
+let siteConfig = null;
 let activeCategory = '';
+
+async function reloadCategories() {
+  const { categories, manifest } = await loadAllCategories(true);
+  categoriesData = categories;
+  manifestData = manifest;
+  const searchInput = document.getElementById('search');
+  render(categoriesData, activeCategory, searchInput.value);
+  await hydratePreviews(
+    activeCategory
+      ? categoriesData.filter((c) => c.slug === activeCategory)
+      : categoriesData
+  );
+}
 
 async function init() {
   const loading = document.getElementById('loading');
@@ -552,7 +573,12 @@ async function init() {
   const content = document.getElementById('content');
 
   try {
-    categoriesData = await loadAllCategories();
+    const configRes = await fetch(CONFIG_PATH);
+    siteConfig = configRes.ok ? await configRes.json() : null;
+
+    const { categories, manifest } = await loadAllCategories();
+    categoriesData = categories;
+    manifestData = manifest;
 
     if (categoriesData.length === 0) {
       throw new Error('No categories found. Add a file under resources/categories/');
@@ -572,6 +598,15 @@ async function init() {
     };
 
     doRender();
+
+    if (siteConfig?.github) {
+      initAddResource({
+        categories: categoriesData,
+        manifest: manifestData,
+        config: siteConfig,
+        onSaved: () => reloadCategories(),
+      });
+    }
 
     document.getElementById('categories').addEventListener('click', (e) => {
       const btn = e.target.closest('.cat-btn');
