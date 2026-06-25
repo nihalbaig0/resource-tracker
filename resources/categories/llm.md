@@ -23,3 +23,7 @@
 - https://sparsedense.substack.com/p/synthetic-data-pipeline-for-python
 
 - https://imaddabbura.github.io/posts/nlp/Transformer-Architecture-Explained.html
+
+## vllm
+
+- https://paulsbrookes.github.io/2026/06/21/the-structure-of-vllm.html
